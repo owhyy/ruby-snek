@@ -13,7 +13,7 @@ class Snake
     @y_movement = 0 # snake's y movement/frame
     @body = [@initial_position] # body of the snake
   end
-  attr_writer :x_movement, :y_movement
+  attr_accessor :x_movement, :y_movement
   attr_reader :body, :initial_position
 
   def move_continuously
@@ -27,10 +27,6 @@ class Snake
     head[1] += delta_y
     @body.push head
   end
-
-  def position
-    @initial_position
-  end
 end
 
 # board, on which movement happens,
@@ -40,11 +36,11 @@ class Board
     @delay = 300 # speed at which the snake traverses 1 block (in miliseconds)
     @game = game
     @snake = Snake.new(self)
-    @fruit = [rand(1..NUM_ROWS), rand(1..NUM_COLUMNS)]
+    @fruit = [rand(1..NUM_COLUMNS), rand(1..NUM_ROWS)]
     @exists_fruit = false
   end
 
-  attr_accessor :exists_fruit
+  attr_accessor :exists_fruit, :fruit
   attr_reader :delay
 
   def draw
@@ -52,7 +48,7 @@ class Board
   end
 
   def game_over?
-    pos = @snake.initial_position
+    pos = @snake.body[0]
     if pos[0] < 1 || pos[0] > NUM_COLUMNS || pos[1] < 1 || pos[1] > NUM_ROWS
       true
     else
@@ -78,8 +74,27 @@ class Board
   end
 
   def ate?
-    @snake.body.last[0] = fruit[0] && @snake.body.last[1] = fruit[1]
+    @snake.body.last[0] == fruit[0] && @snake.body.last[1] == fruit[1]
   end
+
+  def eat_fruit
+    puts "snake: #{@snake.body.last[0]}, #{@snake.body.last[1]}"
+    puts "fruit: #{@fruit[0]}, #{@fruit[1]}"
+    if ate?
+      puts "ate"
+      next_part = @snake.body.last.dup
+      next_part[0] += @snake.x_movement
+      next_part[1] += @snake.y_movement
+
+      @snake.body.push next_part
+      # move this to a method
+      @fruit = [rand(1..NUM_ROWS), rand(1..NUM_COLUMNS)]
+    end
+  end
+end
+
+class Fruit
+  # TODO: move everything fruit-related here
 end
 
 # controls the running of the game, as well as events
@@ -104,6 +119,7 @@ class Game
   attr_reader :canvas
 
   def draw_body(body, old = nil)
+    # this shouldn't be here
     draw_fruit
 
     old.each(&:remove) unless old.nil?
@@ -120,14 +136,14 @@ class Game
 
   def draw_fruit
     size = BLOCK_SIZE
-    unless @board.exists_fruit
-      SnakeRect.new(@canvas, size, # the +3 and -3 are purely cosmetic
-                    size,
-                    size,
-                    size,
-                    'red')
-      @board.exists_fruit = true
-    end
+    return if @board.exists_fruit
+
+    SnakeRect.new(@canvas, @board.fruit[0] * size + 3,
+                  @board.fruit[1] * size - 3,
+                  @board.fruit[0] * size + size + 3,
+                  @board.fruit[1] * size + size - 3,
+                  'red')
+    @board.exists_fruit = true
   end
 
   def run_game
@@ -135,6 +151,7 @@ class Game
     @timer.start(@board.delay, (proc {
       @board.run
       run_game
+      @board.eat_fruit
     }))
   end
 
